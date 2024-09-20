@@ -7,7 +7,7 @@ import subprocess
 import ascii_art
 
 
-def print_feedback_with_bubble(feedback):
+def print_feedback_with_bubble(feedback: dict) -> None:
     for file, result in feedback.items():
         lines = result.split('\n')
         max_length = max(len(line) for line in lines)
@@ -23,7 +23,9 @@ def print_feedback_with_bubble(feedback):
         print("\n")
 
 
-async def animate_ascii_art(stdscr, art_1, art_2, art_3, width=20, speed=0.5):
+async def animate_ascii_art(stdscr, art_1: str, art_2: str, art_3: str) -> None:
+    width = 20
+    speed = 0.5
     curses.curs_set(0)
     stdscr.clear()
 
@@ -57,7 +59,7 @@ async def animate_ascii_art(stdscr, art_1, art_2, art_3, width=20, speed=0.5):
         await asyncio.sleep(speed)
 
 
-async def run_ruff_check(target_dir):
+async def run_ruff_check(target_dir: str, sleep_time: int) -> dict[str, str]:
     feedback = dict()
 
     for root, dirs, files in os.walk(target_dir):
@@ -74,7 +76,8 @@ async def run_ruff_check(target_dir):
 
                 stdout, stderr = await process.communicate()
 
-                await asyncio.sleep(2)
+                if sleep_time:
+                    await asyncio.sleep(sleep_time)
 
                 # 修正箇所がない場合は"デレ"
                 feedback[file_path] = "Просто ужасно" if process.returncode == 0 else f"{
@@ -86,7 +89,7 @@ async def run_ruff_check(target_dir):
     return feedback
 
 
-async def main(target_dir):
+async def main(target_dir: str, sleep_time: int) -> None:
     global stop_animation
     stop_animation = asyncio.Event()
     ascii_art_normal = ascii_art.normal_437
@@ -101,10 +104,10 @@ async def main(target_dir):
     try:
         # アニメーションを動かすタスクを作成
         animation_task = asyncio.create_task(animate_ascii_art(
-            stdscr, ascii_art_normal, ascii_art_left, ascii_art_right, width=30, speed=0.5))
+            stdscr, ascii_art_normal, ascii_art_left, ascii_art_right))
 
         # ruff のチェックを非同期で実行
-        feedback = await run_ruff_check(target_dir)
+        feedback = await run_ruff_check(target_dir, sleep_time)
 
         # アニメーションタスクを待機
         await animation_task
@@ -120,9 +123,11 @@ async def main(target_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Specify the target directory for Ruff checks.')
+        description='Specify the target directory for Ruff checks and the time interval between each check.')
     parser.add_argument('target_dir', type=str, help='Directory to be checked')
+    parser.add_argument('sleep_time', type=float,
+                        help='Time (in seconds) to wait between each Ruff check')
 
     args = parser.parse_args()
 
-    asyncio.run(main(args.target_dir))
+    asyncio.run(main(args.target_dir, args.sleep_time))
